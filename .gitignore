@@ -1,0 +1,19 @@
+# Hardhat artifacts and cache
+artifacts/
+cache/
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+
+# packages
+package-lock.json
+test/todos.md
+
+# System and Editor folders/files
+.DS_Store
+*.log
+*.swp
+*.bak
