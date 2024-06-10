@@ -1,7 +1,7 @@
     // SPDX-License-Identifier: MIT
     pragma solidity ^0.8.0;
 
-    /// @author Moughite El Joaydi (@Stronox)
+    /// @author Moughite El Joaydi (@Stronot)
     /// @title Paygrid Payment Core contract
     /// @dev Payment Core is the payment processor for inbound and outbound transactions 
 
@@ -11,7 +11,7 @@
     import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
     import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-    contract PaymentCore is Initializable, OwnableUpgradeable, AccessControlUpgradeable {
+    contract GridPaymentCoreV1 is Initializable, OwnableUpgradeable, AccessControlUpgradeable {
         using SafeERC20Upgradeable for IERC20Upgradeable;
 
         bytes32 private constant PG_ADMIN_ROLE = keccak256("PG_ADMIN_ROLE");
