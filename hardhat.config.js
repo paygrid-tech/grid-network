@@ -15,14 +15,23 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.19",
+        version: "0.8.0",
         settings: {
           optimizer: {
             enabled: true,
-            runs: 20,
+            runs: 200,
           },
         },
-      }
+      },
+      {
+        version: "0.8.24",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      }     
     ],
   },
 
@@ -33,9 +42,9 @@ module.exports = {
       gasPrice: "auto",
       timeout: 10000,
       chainId: 1337,
-      // allowUnlimitedContractSize: true,
+      allowUnlimitedContractSize: true,
       accounts: {
-        mnemonic: process.env.MNEMONIC
+        mnemonic: "grid test test test test test test test test test test junk",
       }
       // forking: {
       //   url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}` || "",
@@ -48,7 +57,7 @@ module.exports = {
       gasPrice: "auto",
       allowUnlimitedContractSize: true,
       accounts: {
-        mnemonic: process.env.MNEMONIC
+        mnemonic: "grid test test test test test test test test test test junk",
       }
     },
     // mainnet: {
@@ -56,17 +65,17 @@ module.exports = {
     //   accounts: [`0x${YOUR_PRIVATE_KEY}`], // add your mainnet private key here if you want to deploy or run scripts on mainnet
     // },
     sepolia: {
-      url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY_SEPOLIA}`,
-      accounts: [`0x${process.env.EVM_PRIVATE_KEY}`], // add your sepolia private key here if you want to deploy or run scripts on sepolia
+      url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.INFURA_SEPOLIA_API_KEY}`,
+      accounts: [`${process.env.EVM_PRIVATE_KEY}`], // add your sepolia private key here if you want to deploy or run scripts on sepolia
       // chainId: 100,
       gasPrice: 30000000000,
       gas: "auto"
     },
 
-    mumbai: {
-      url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY_MUMBAI}`,
-      accounts: [`0x${process.env.EVM_PRIVATE_KEY}`], // add your mumbai private key here if you want to deploy or run scripts on mumbai
-      chainId: 80001,
+    amoy: {
+      url: `https://polygon-amoy.g.alchemy.com/v2/${process.env.ALCHEMY_AMOY_API_KEY}`,
+      accounts: [`${process.env.EVM_PRIVATE_KEY}`], // add your amoy private key here if you want to deploy or run scripts on mumbai
+      // chainId: 80001,
       gasPrice: 20000000000,
       gas: "auto"
     }

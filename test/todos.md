@@ -1,3 +1,60 @@
+## Protocol General tasks
+
+- Define and implement multi-beacon delegation pattern for beacon contracts upgrades: GridOperatorBeacon + GridRouterGateway
+- Define main storage layout and operator config and payment transaction intents storage structs and state variables
+- Write necessary constants (native assets, max uints, null address, etc) and state variables and structs 
+- Implement Access control with a combination of:
+    > EIP-712: Best used in GridPaymentCoreV1 and GridOperatorNode for verifying signatures on payment transactions and operator node configuration updates (only write).
+    While EIP-712 provides a robust way to authorize actions off-chain, traditional access control mechanisms are still necessary to manage and verify who the authorized operators are. 
+        EIP-712 (Off-Chain Signatures):
+        • Support more flexible and gasless interactions.
+        • Suitable for scenarios where operators can sign messages off-chain, and the actual transaction submission can be handled by a relayer or another party.
+        • Provides additional security and flexibility
+    > Access Control: Implemented to secure critical functions and ensure only authorized operators/signers can perform read/update actions.
+        Traditional Access Control Modifiers:   
+        • Operators interact directly with the contract and if simplicity and straightforward on-chain enforcement are priorities.
+        • Suitable for scenarios where gasless interactions are not necessary.
+- Emit events for all state create and update actions 
+- Implement error/exception handling and revert reasons
+	•	Use `require` for input validation: require is ideal for checking conditions that are external to the contract, such as user inputs.
+	•	Use `assert` for internal checks: assert should be used to ensure the internal consistency of the contract. The conditions checked with assert should never fail.
+	•	Use `custom errors` for complex conditions: Custom errors are more gas-efficient and can provide detailed feedback.
+- Implement circuit breakers and pausable pattern:
+	• Pausable Pattern: Allows stopping and resuming the contract’s functionality in case of emergencies. Includes functions like pause, unpause, and modifiers whenNotPaused, whenPaused.
+	• Circuit Breaker: A pattern similar to the Pausable pattern but focused on enabling or disabling specific functions in response to certain conditions, often used as a safety mechanism.
+- Use `EnumerableMaps` if needed with mappings to make them enumerable
+>>> external override onlyInitializer(initcaller) { // double check for bypass !!!
+
+
+## Grid Protocol Manager
+
+- The contract owner can grant and revoke the PG_ADMIN_ROLE.
+- Non-owners can't grant or revoke roles.
+- Protocol operators can add and remove supported tokens.
+- Protocol operators can set the protocol fee.
+- Protocol operators can set a new treasury wallet.
+
+## Grid Operator Registry
+
+- Implement 
+
+
+## Grid Operator Node
+- OperatorConfig Struct: Defined within the contract to manage operator configurations, including authorized signers.
+- State Management: Uses a mapping to store operator configurations, ensuring efficient data access and updates.
+- Initialization: The initialize function ensures each operator is set up with a unique configuration, including a generated operator ID.
+- Authorization: Functions use the onlyAuthorizedSigner modifier to ensure that only authorized signers can update configurations or access sensitive data.
+- Delegation: The delegateToPaymentCore function delegates calls to the GridPaymentCoreV1 implementation, preserving the context of the BeaconProxy.
+- Fallback and Receive Functions: These ensure that any call not matched by a function signature is forwarded to the current implementation.
+
+
+
+
+
+
+
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
 
 # Payment Core Contracts TASKS
 
