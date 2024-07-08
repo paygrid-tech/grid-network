@@ -1,44 +1,49 @@
-# Grid Payment Protocol Overview
+# Grid Payment Protocol
 
-Grid is a payment protocol designed to provide payment operators with a standard framework and modular architecture to build, automate, and process cross-chain payment workflows. At its core, it consists of modules that define operations for compliance and different payment models, from basic one-time and recurring to usage-based and streaming payments. This level of abstraction is the foundation for creating context-aware payment transactions tailored to each outbound or inbound payment model and use case.
+## Intro
 
-The protocol design builds upon the concepts of interoperability, composability, self-custody and capabilities of programmable payments and modular smart contract accounts. Integrating and managing the end-to-end payment life-cycle, including authorizing payments, routing transactions, and handling settlements. 
+Grid is a network-agnostic payment protocol designed to provide developers and payment operators with a secure and modular standard framework to build, automate, and process cross-chain payment workflows. 
+
+At its core, it consists of modules that define operations for different payment models and agreements, from basic one-time and recurring to usage-based and streaming payments. This level of abstraction is the foundation for creating context-rich payment transactions tailored to each outbound or inbound payment flow and use case.
+
+The protocol design builds upon the concepts of interoperability, composability, self-custody and capabilities of programmable payments and smart contract accounts. Integrating and managing the end-to-end payment life-cycle, including authorizing payments, routing transactions, and handling settlements. 
 
 Instead of reinventing the wheel and setting a yet another standard to follow, Grid protocol extends the ISO20022 financial messaging standard to support blockchain payments context, facilitating interoperable payment data transfer across blockchain and traditional fiat systems.
 
+
+## Architecture Overview
+![Alt text](./docs/Grid-architecture.png)
+
+The architecture of the Grid Protocol consists of several key components:
+
 ### Grid Operator Registry (Factory)
 
-This contract is based on the factory pattern and responsible for creating new beacon proxy instances of payment operator nodes. An entry point to facilitate payment operators onboarding and maintains a registry mapping of operators and their operator nodes addresses. They are responsible for setting up account endpoints (not in V1 scope) with the protocol and providing an integration layer and/or DApps for their users.
+This contract is based on the factory pattern and responsible for creating new beacon proxy instances of payment operator nodes Operators can begin facilitating payments after completing registration and integration. They are responsible for providing an integration layer and/or DApps for both payers and payees to interact with. Operator onboarding is permissionless, and Paygrid is the first operator in the network.
 
 - Responsible for deploying new operator nodes
-- Store a mapping for all operators and their operator nodes.
+- Store a list for all operators and their operator nodes.
 - Facilitate permissionless access and onboarding for new payment operators.
 
 
-### Grid Operator Node (Beacon Proxy)
+### Grid Operator Node
 
-This contract is the operator payment routing gateway of the protocol. Each payment operator interfacing with the protocol has a dedicated beacon proxy contract deployed by the operator factory at registration. It serves as a state storage and entry point to all protocol operations. 
+This is the operator payment gateway. Each payment operator interfacing with the protocol has a dedicated proxy deployed by the operator factory at registration. It serves as the entry point to all protocol operations. 
 
-- Delegates calls to implementation contract **`GridPaymentCoreV1`**
-- Operators access control is enforced here and only authorized signers are allowed to read or modify operator data.
-- Store a mapping registry for all operators and their configuration data
+- Manage operator configurations and processes payment intents.
 
-**NOTE: The operator node is not a classical beacon proxy but it slightly different since it holds operator config state variables and logic to read and update them**
+## Grid Protocol Manager
+A transparent proxy contract that manages protocol configurations such as supported tokens, protocol fees, and treasury addresses.
 
-### Grid Payment Core V1
+### Payment Core V1
 
-Core logic contract responsible for executing the payment transaction, 
+Core logic library for processing payments, including token transfers and fee calculations.
 
-- The **`Operator Node`** proxy ****contract calls the  **`Grid Payment Core V1`**to initiate a payment transaction intent.
-- The **`Grid Payment Core V1`** verifies if operator is authorized by using an Operator node modifier and passing the msg sender then checks validity of payment details.
-    - An EIP-712 signature check is included here for every payment transaction intent
-- The **`Grid Payment Core V1`** execute the transaction and transfers the payment amount in tokens from source to destination minus the fees sent to the operator treasury account.
-- The **`Grid Payment Core V1`** records the successful completed payment details and stores a payment transaction intent associated with the calling operator.
-- Emits a payment transaction event with status and other details
+### Payment Modules
 
-**NOTE: This contract can read and probably update the operator config data by interacting with the `Operator Node`  using a redirection mechanism for the original msg.sender for authorization checks.**
+- **Operator Payment Task Scheduler:** Schedules automated payment tasks using the Gelato protocol.
+- **XCRouter**: Supports cross-chain transfers and liquidity aggregation.
 
-## **Payment Transaction Intents**
+## Payment Transaction Intents
 
 Each payment transfer use a primitive with the name **`PaymentIntent`**. This struct specifies the following:
 
@@ -67,3 +72,37 @@ Each payment transfer use a primitive with the name **`PaymentIntent`**. This st
 - Payment metadata
 - Status
 - End-to-end reference
+
+Along with these attributes, a `PaymentIntent` must be signed by the operator using EIP-712. This allows an operator to control how and when transaction processing happens and be selective about what payments to allow based on their backend business logic, internal policies, legal requirements, or other reasons. It also ensures that a `PaymentIntent` cannot be forged or have its data modified in any way.
+
+### Payment Status Tracking
+
+- **Processing**: The payment transaction intent has been validated and created
+- **Completed**: The payment transaction intent has been successfully processed and confirmed. This indicates that the funds have been transferred.
+- **Scheduled:** The payment transaction is scheduled for processing at a specific time interval or recurring billing cycle.
+    - E.g monthly transfer of 10 USDC from A to B.
+    - E.g A one-time transfer of 3190 USDC executed on 01/04/2025 at 10:30AM 🕥
+- **Cancelled**:  The payment request has been cancelled by the operator or either transaction parties
+- **Failed**: The payment transaction encountered an error or was reverted for some reason preventing the transaction from being completed.
+    
+    **Possible Transitions:**
+    
+    - **`Processing → Completed`**
+    - **`Processing → Failed`**
+    - **`Processing → Cancelled`**
+    - **`Scheduled → Cancelled`**
+    - **`Scheduled → Completed`**
+
+### Payment methods supported
+
+Native and ERC-20 token transfers are supported along with cross-chain token settlements where we meet payers at their point of liquidity and guarantee that accounts receive funds in their preferred token(s).
+
+### **Security Considerations**
+
+- **Role-Based Access Control:** RBAC is implemented to authorize and restrict access to certain functions and data within the protocol to users based on their assigned role. Roles are defined (e.g. Operator, Account Endpoint) and permissions are assigned respectively with modifiers.
+- **Authorization Management:** Its purpose is to ensure that all transactions and operations are performed by authenticated and authorized entities by implementing signature verification and allowance checks for transactions. Each operation, especially those involving fund transfers, should require authorization from the involved parties.
+- **Self-Custody:** Ensuring that all parties involved in transactions maintain control over their funds which are never locked in the protocol at any time. This minimizes the risk of draining attacks and breaches from a central point of failure. Ensuring that agreements and transactions require explicit user approval via signatures schemes helps enforce this principle.
+
+----
+
+Grid protocol is permisionless and free to use, experiment and build on top of. Reach out to us if you're interested to contribute to the future of payment technology.
