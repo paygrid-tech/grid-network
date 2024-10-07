@@ -1,9 +1,15 @@
 # Hardhat artifacts and cache
 artifacts/
 cache/
+.openzeppelin/
+.vscode/
 
 # Node modules
 node_modules/
+
+#Custom files
+todos.md
+deployments/*.json
 
 # Environment files
 .env
@@ -11,6 +17,7 @@ node_modules/
 # packages
 package-lock.json
 test/todos.md
+yarn.lock
 
 # System and Editor folders/files
 .DS_Store
