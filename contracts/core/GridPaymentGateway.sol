@@ -180,7 +180,11 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
     function cancelRecurringPayment(bytes32 payment_id, address operator) external {
         PaymentIntentRecord storage stored_intent = payment_intents[operator][payment_id];
         require(stored_intent.intent.paymentId != bytes32(0), "Payment intent not found");
-        require(_msgSender() == stored_intent.intent.source.account || _msgSender() == operator, "Unauthorized");
+        require(
+            _msgSender() == stored_intent.intent.source.account || 
+            _msgSender() == stored_intent.intent.operator_data.operator, 
+            "Unauthorized"
+        );
 
         stored_intent.status.code = PaymentStatus.CANCELLED;
 

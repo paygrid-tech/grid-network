@@ -10,6 +10,7 @@ node_modules/
 #Custom files
 todos.md
 deployments/*.json
+deployments/deploy_grid_clean.js
 
 # Environment files
 .env
