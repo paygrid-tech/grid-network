@@ -1,108 +1,140 @@
-# Grid Payment Protocol
+# **Grid: Payment Intent Protocol**
 
-## Intro
+## Overview
 
-Grid is a network-agnostic payment protocol designed to provide developers and payment operators with a secure and modular standard framework to build, automate, and process cross-chain payment workflows. 
+Grid is an open intent-based protocol designed to handle on-chain payment operations. It serves as the on-chain settlement contract for the Paygrid Network. Grid is open-source, permissionless and free to use.
 
-At its core, it consists of modules that define operations for different payment models and agreements, from basic one-time and recurring to usage-based and streaming payments. This level of abstraction is the foundation for creating context-rich payment transactions tailored to each outbound or inbound payment flow and use case.
+To learn more about Paygrid Network, please refer to [Paygrid Docs](https://docs.paygrid.network/).
 
-The protocol design builds upon the concepts of interoperability, composability, self-custody and capabilities of programmable payments and smart contract accounts. Integrating and managing the end-to-end payment life-cycle, including authorizing payments, routing transactions, and handling settlements. 
+## **Protocol Components**
 
-Instead of reinventing the wheel and setting a yet another standard to follow, Grid protocol extends the ISO20022 financial messaging standard to support blockchain payments context, facilitating interoperable payment data transfer across blockchain and traditional fiat systems.
+### Chain-abstracted Payment Intent (CAPI)
 
+CAPIs are primitives based on a declarative model that describe self-contained instructions for executing specific payment outcomes. Each `Payment Intent` define parameters such as the source and destination domains, amount, recipient(s), and any conditions or constraints required for execution. These primitives support multi-step or complex transactions, including recurring, batch payments, conditional transfers, and multi-party settlements, allowing for flexible, programmable payment flows. 
 
-## Architecture Overview
-![Alt text](./docs/Grid-architecture.png)
+Payment Intents streamline transaction logic, reduce execution errors, and provide an auditable trail, enabling automated workflows through integration with smart contracts. The struct specifies the following:
 
-The architecture of the Grid Protocol consists of several key components:
+```solidity
+/* 
+* @notice Struct representing the payment intent, 
+* the core primitive for processing payments flows 
+*/
+struct PaymentIntent {
+    bytes32 paymentId; // Payment Intent ID, generated or provided off-chain
+    PaymentType payment_type; // Specifies the type of payment: one-time, recurring, etc.
+    OperatorData operator_data; // Operator processing this payment (operator details, fees, etc.)
+    uint256 amount; // The amount to be transferred
+    Domain source; // The source chain, specifying the wallet address, network ID, and payment token for the transfer
+    Domain destination; // The destination chain 
+    uint256 processing_date; // The date the payment is set to be processed, useful for scheduled payments. If not set, defaults to immediate execution
+    uint256 expires_at; // Timestamp indicating when this payment intent expires (used for signature-based payments, e.g., permit2)
+    Schedule schedule; // Contains scheduling data if the payment is recurring, such as interval details and repetition count
+    bytes p2_sig; // The permit2 signature from the payer, authorizing the payment intent
+    uint256 nonce; // A nonce to protect against replay attacks, also used for permit2 signature verification
+    string payment_reference; // (Optional) An external reference for off-chain reconciliation or tracking of the payment
+    bytes metadata; // Arbitrary metadata field for storing additional intent-type specific information
+}
 
-### Grid Operator Registry (Factory)
+struct OperatorData {
+    bytes32 operatorId; // Operator facilitating the payment
+    address operator; // The address of the operator
+    address[] authorized_signers; // List of authorized delegates to sign or initiate the payment on behalf of the operator
+    address treasury_account; // The operator's treasury wallet where the operator's fees will be transferred
+    uint256 fee; // The fee percentage deducted from the transfer amount and sent to the operator's treasury (e.g., 2% fee = 200 bp)
+    string operatorURI; // A well-known public URL that provides a standardized JSON document with operator config data.
+}
 
-This contract is based on the factory pattern and responsible for creating new beacon proxy instances of payment operator nodes Operators can begin facilitating payments after completing registration and integration. They are responsible for providing an integration layer and/or DApps for both payers and payees to interact with. Operator onboarding is permissionless, and Paygrid is the first operator in the network.
+struct GatewayConfig {
+    address relayer_address; // Address of the relayer or gateway handling the payment execution
+    uint256 fee; // Fee charged by the gateway for processing the payment, distinct from the operator fee
+    address treasury; // Treasury address for the gateway where the execution fee is sent
+}
 
-- Responsible for deploying new operator nodes
-- Store a list for all operators and their operator nodes.
-- Facilitate permissionless access and onboarding for new payment operators.
+struct Domain {
+    address account; // The wallet address from which the payment is sourced or to which it is sent
+    uint256 network_id; // Network ID of the blockchain where the payment will be executed (e.g., Ethereum mainnet, Polygon, etc.)
+    address payment_token; // Address of the token being used for the payment (e.g., ERC20 token or native address)
+}
 
-
-### Grid Operator Node
-
-This is the operator payment gateway. Each payment operator interfacing with the protocol has a dedicated proxy deployed by the operator factory at registration. It serves as the entry point to all protocol operations. 
-
-- Manage operator configurations and processes payment intents.
-
-## Grid Protocol Manager
-A transparent proxy contract that manages protocol configurations such as supported tokens, protocol fees, and treasury addresses.
-
-### Payment Core V1
-
-Core logic library for processing payments, including token transfers and fee calculations.
-
-### Payment Modules
-
-- **Operator Payment Task Scheduler:** Schedules automated payment tasks using the Gelato protocol.
-- **XCRouter**: Supports cross-chain transfers and liquidity aggregation.
-
-## Payment Transaction Intents
-
-Each payment transfer use a primitive with the name **`PaymentIntent`**. This struct specifies the following:
-
-- A unique identifier for payment transaction
-- Payment type (one-time, recurring)
-- The address of operator who is facilitating the payment processing
-- The operator's signature
-- Fiat currency
-- Amount
-- The source object:
-    - Account address
-    - Network ID
-    - Payment token
-- The destination object:
-    - Account address
-    - Network ID
-    - Payment token
-- Processing date
-- The payment expiration timestamp
-- Recurring paramaters:
-    - interval
-    - interval count
-    - iterations count
-    - start date
-    - end date
-- Payment metadata
-- Status
-- End-to-end reference
-
-Along with these attributes, a `PaymentIntent` must be signed by the operator using EIP-712. This allows an operator to control how and when transaction processing happens and be selective about what payments to allow based on their backend business logic, internal policies, legal requirements, or other reasons. It also ensures that a `PaymentIntent` cannot be forged or have its data modified in any way.
-
-### Payment Status Tracking
-
-- **Processing**: The payment transaction intent has been validated and created
-- **Completed**: The payment transaction intent has been successfully processed and confirmed. This indicates that the funds have been transferred.
-- **Scheduled:** The payment transaction is scheduled for processing at a specific time interval or recurring billing cycle.
-    - E.g monthly transfer of 10 USDC from A to B.
-    - E.g A one-time transfer of 3190 USDC executed on 01/04/2025 at 10:30AM 🕥
-- **Cancelled**:  The payment request has been cancelled by the operator or either transaction parties
-- **Failed**: The payment transaction encountered an error or was reverted for some reason preventing the transaction from being completed.
-    
-    **Possible Transitions:**
-    
-    - **`Processing → Completed`**
-    - **`Processing → Failed`**
-    - **`Processing → Cancelled`**
-    - **`Scheduled → Cancelled`**
-    - **`Scheduled → Completed`**
-
-### Payment methods supported
-
-Native and ERC-20 token transfers are supported along with cross-chain token settlements where we meet payers at their point of liquidity and guarantee that accounts receive funds in their preferred token(s).
-
-### **Security Considerations**
-
-- **Role-Based Access Control:** RBAC is implemented to authorize and restrict access to certain functions and data within the protocol to users based on their assigned role. Roles are defined (e.g. Operator, Account Endpoint) and permissions are assigned respectively with modifiers.
-- **Authorization Management:** Its purpose is to ensure that all transactions and operations are performed by authenticated and authorized entities by implementing signature verification and allowance checks for transactions. Each operation, especially those involving fund transfers, should require authorization from the involved parties.
-- **Self-Custody:** Ensuring that all parties involved in transactions maintain control over their funds which are never locked in the protocol at any time. This minimizes the risk of draining attacks and breaches from a central point of failure. Ensuring that agreements and transactions require explicit user approval via signatures schemes helps enforce this principle.
+struct Schedule {
+    IntervalUnit intervalUnit; // Unit of time for the recurring interval (day, week, month, year)
+    uint256 interval_count; // Number of interval units between each occurrence (e.g., 2 for bi-weekly if intervalUnit is week)
+    uint256 iterations; // Number of iterations the payment should be repeated; if set, end_date should not be used
+    uint256 start_date; // The timestamp of when the recurring payments should start
+    uint256 end_date; // The timestamp for when the recurring payments should stop (ignored if iterations are set)
+}
+```
+ 
+> 🔒 Along with these attributes, a **`PaymentIntent`** must be authorized by the operator (or an approved delegate) by producing a EIP-712 or EIP-1271 signature. This allows authentication and for operator to control how and when intent processing happens and be selective about what payments to allow based on their business logic, internal policies, legal requirements, or other reasons. It also ensures that a **`PaymentIntent`** cannot be forged or have its data modified in any way.
 
 ----
 
-Grid protocol is permisionless and free to use, experiment and build on top of. Reach out to us if you're interested to contribute to the future of payment technology.
+### **Payment Status Tracking**
+  
+- **Processing**: The payment transfer intent has been validated and created
+- **Completed**: The payment transfer intent has been successfully processed and confirmed. This indicates that the funds have been transferred.
+- **Scheduled:** The payment transaction is scheduled for processing at a specific time interval or recurring cycle.
+- **Cancelled**: The payment has been cancelled by the operator or either transaction parties
+- **Failed**: The payment transaction encountered an error or was reverted for some reason preventing the transaction from being completed.
+
+### Payment Status Update: [IPN Webhooks](https://en.wikipedia.org/wiki/Instant_payment_notification)
+
+IPN is a specific type of webhook typically used in financial or eCommerce contexts to communicate changes in payment status. Payment status events during the payment intent lifecycle are recorded by a **`PAYMENT_STATUS_UPDATE`** event emitted by the protocol:
+
+```solidity
+event PAYMENT_STATUS_UPDATE(
+    bytes32 indexed paymentID,
+    bytes32 indexed operatorID,
+    address indexed operator, // 
+    address sender,
+    address receiver,
+    uint256 amount,
+    address payment_token,
+    uint256 executed_date,
+    uint256 next_payment_date,
+    PaymentStatus status,
+    string payment_reference,
+    string metadata,
+    string reason
+);
+```
+
+In the case of errors, a specific error type is returned with details about what went wrong.
+### Payment methods supported
+Native and ERC-20 token transfers are supported along with cross-chain token settlements where we meet payers at their point of liquidity and guarantee that accounts receive funds in their preferred token(s).
+
+
+## Repository Structure
+
+```
+.
+├── README.md         // You are here 
+├── config            // Configuration files
+├── contracts         // Protocol contracts code 
+│   ├── core          // Core protocol logic
+│   ├── helpers       // Helper definitions                     
+│   ├── interfaces    // Interface definitions
+│   ├── library       // Library definitions
+│   ├── Proxies                             
+│   ├── abstract
+├── deployments       // Deployment scripts
+├── docs              // Contracts technical docs and arch diagrams (placeholder)
+├── scripts           // scripts containing sample calls
+├── test              // Contract unit and integration tests
+
+```
+
+## Deployments
+
+The Grid Payment Protocol is currently in closed beta and live on the following networks. We are continuously expanding to additional networks over time. 
+
+| Network  | Environment     | Address                                    |
+| -------- | --------------- | ------------------------------------------ |
+| Ethereum | Sepolia Testnet | 0xCF8d61b1fD933aedd5fFBD586A2ECf991f926444 |
+| Polygon  | Amoy Testnet    | 0xCF8d61b1fD933aedd5fFBD586A2ECf991f926444 |
+
+- The `GridPaymentGateway` logic contract is upgradeable during the beta phase but will be non-upgradeable upon full release.
+- Addresses will be updated when new versions are deployed on mainnets.
+- The entry point `GridOperatorProxy` will be using a factory contract for easily deploying contracts to the same address on multiple chains, using [CREATE3](https://github.com/zeframlou/create3-factory).
+- Excluded from this repo is a copy of [Uniswap/permit2](https://github.com/Uniswap/permit2), which would be copied to `contracts/permit2` in order to compile.
+
