@@ -126,14 +126,17 @@ Native and ERC-20 token transfers are supported along with cross-chain token set
 
 ## Deployments
 
-The Grid Payment Protocol is currently in closed beta and live on the following networks. We are continuously expanding to additional networks over time. 
+The Grid Payment Protocol is live on the following networks. We are continuously expanding to additional networks over time. 
 
-| Network  | Environment     | Address                                    |
-| -------- | --------------- | ------------------------------------------ |
-| Ethereum | Sepolia Testnet | 0xCF8d61b1fD933aedd5fFBD586A2ECf991f926444 |
-| Polygon  | Amoy Testnet    | 0xCF8d61b1fD933aedd5fFBD586A2ECf991f926444 |
+| Network  | Environment  | Address                                    |
+| -------- | -------------| ------------------------------------------ |
+| POLYGON  | Mainnet      | 0x945366b290db61105B8DbD4D50B1dFDCed7a4342 |
+| BASE     | Mainnet      | 0x93F07df792F40693fb9A31e62711aA6AFfe7efc6 |
+| ARBITRUM | Mainnet      | 0x4B1d5b0aF5AbAe333C8d2CCa2a346e0D5f68C427 |
+| OPTIMISM | Mainnet      | 0x4B1d5b0aF5AbAe333C8d2CCa2a346e0D5f68C427 |
+| ETHEREUM | Mainnet      | 0xCF8d61b1fD933aedd5fFBD586A2ECf991f926444 |
 
-- The `GridPaymentGateway` logic contract is upgradeable during the beta phase but will be non-upgradeable upon full release.
+- The `GridPaymentGateway` logic contract is upgradeable during the initial phase but will be non-upgradeable upon full release.
 - Addresses will be updated when new versions are deployed on mainnets.
 - The entry point `GridOperatorProxy` will be using a factory contract for easily deploying contracts to the same address on multiple chains, using [CREATE3](https://github.com/zeframlou/create3-factory).
 - Excluded from this repo is a copy of [Uniswap/permit2](https://github.com/Uniswap/permit2), which would be copied to `contracts/permit2` in order to compile.
