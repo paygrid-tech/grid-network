@@ -7,17 +7,17 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title PaymentCore
 /// @notice Core payment processing logic library responsible for validating, processing and executing the payment transfers.
-library PaymentCore{
+library PaymentCore {
 
-    string private constant LIB_VERSION = "1.0.0";
+    string private constant LIB_VERSION = "1.1.0";
 
     uint256 private constant MAX_EXPIRATION = type(uint48).max;
     uint256 private constant TOLERANCE = 10 hours;
     uint256 private constant SIG_DEADLINE_DURATION = 1 days;
     uint256 private constant BASIS_POINTS = 10000;
 
-    uint256 public constant MAX_OPERATOR_FEE = 1000; // 10% in basis points
-    uint256 public constant MAX_GATEWAY_FEE = 50; // 0.5% in basis points
+    uint256 public constant MAX_OPERATOR_FEE = 1000; // 10% in bps (basis points)
+    uint256 public constant MAX_GATEWAY_FEE = 50; // 0.5% in bps
 
     // Predefined reasons
     string public constant REASON_PAYMENT_PROCESSING = "Payment intent processing initiated";
@@ -67,7 +67,7 @@ library PaymentCore{
             code: execution_success ? PaymentCoreBase.PaymentStatus.COMPLETED : PaymentCoreBase.PaymentStatus.FAILED,
             executed_count: execution_success ? 1 : 0,
             last_execution_success: execution_success,
-            last_execution_date: execution_success ? block.timestamp : 0,
+            last_execution_date: block.timestamp,
             next_payment_date: 0
         });
 
@@ -106,8 +106,7 @@ library PaymentCore{
         PaymentCoreBase.PaymentIntent memory intent,
         PaymentCoreBase.ExecutionContext memory context
     ) internal returns (bool, PaymentCoreBase.PaymentExecutionStatus memory) {
-        
-        // validate payment intent schedule config 
+        // validate payment intent schedule configuration.
         validateSchedule(intent.schedule); 
 
         bool permit_success = setupPermitAllowance(intent, context);
@@ -138,7 +137,7 @@ library PaymentCore{
             code: status_code,
             executed_count: execution_success ? 1 : 0,
             last_execution_success: execution_success,
-            last_execution_date: execution_success ? block.timestamp : 0,
+            last_execution_date: block.timestamp,
             next_payment_date: next_payment_date
         });
 
@@ -160,7 +159,7 @@ library PaymentCore{
         string memory witnessTypeString = _getWitnessTypeString();
 
         try ISignatureTransfer(context.PERMIT2).permitWitnessTransferFrom(
-            permit,
+            permit, 
             transferDetails,
             intent.source.account,
             witness,
@@ -168,22 +167,54 @@ library PaymentCore{
             intent.p2_sig
         ) {
             return true;
-        } catch {
+        } catch Error(string memory reason) {
+            // Handle specific Permit2 errors
+            bytes32 reasonHash = keccak256(bytes(reason));
+            if (reasonHash == keccak256("SignatureExpired(uint256)")) {
+                emit PaymentCoreBase.PERMIT2_ERROR(intent.paymentId, "SignatureExpired", reason);
+            } else if (reasonHash == keccak256("InvalidNonce()")) {
+                emit PaymentCoreBase.PERMIT2_ERROR(intent.paymentId, "InvalidNonce", reason);
+            } else if (reasonHash == keccak256("InvalidSignature()")) {
+                emit PaymentCoreBase.PERMIT2_ERROR(intent.paymentId, "InvalidSignature", reason);
+            } else if (reasonHash == keccak256("InvalidSigner()")) {
+                emit PaymentCoreBase.PERMIT2_ERROR(intent.paymentId, "InvalidSigner", reason);
+            } else if (reasonHash == keccak256("LengthMismatch()")) {
+                emit PaymentCoreBase.PERMIT2_ERROR(intent.paymentId, "LengthMismatch", reason);
+            } else if (reasonHash == keccak256("InvalidAmount(uint256)")) {
+                emit PaymentCoreBase.PERMIT2_ERROR(intent.paymentId, "InvalidAmount", reason);
+            } else {
+                emit PaymentCoreBase.PERMIT2_ERROR(intent.paymentId, "UnknownError", reason);
+            }
+            return false;
+        } catch (bytes memory lowLevelData) {
+            emit PaymentCoreBase.PERMIT2_ERROR(
+                intent.paymentId,
+                "LowLevelError",
+                string(lowLevelData)
+            );
             return false;
         }
     }
 
+    /**
+     * @dev Prepares the payload for a Permit2 transfer.
+     * @param intent The payment intent.
+     * @param amounts The transfer amounts.
+     * @param gatewayConfig The payment gateway configuration.
+     * @return permit The permit for the transfer.
+     * @return transferDetails The transfer details.
+     */
     function _prepareP2TransferPayload(
         PaymentCoreBase.PaymentIntent memory intent,
         PaymentCoreBase.TransferAmounts memory amounts,
         PaymentCoreBase.GatewayConfig memory gatewayConfig
-    ) private pure returns (
+    ) internal pure returns (
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails
     ) {
 
         // Define transfer data
-        (address[] memory recipients, uint256[] memory transferAmounts) = getTransferData(intent, amounts, gatewayConfig);
+        (address[] memory recipients, uint256[] memory transferAmounts) = _getTransferData(intent, amounts, gatewayConfig);
 
         permit = ISignatureTransfer.PermitBatchTransferFrom({
             permitted: new ISignatureTransfer.TokenPermissions[](3),
@@ -206,9 +237,8 @@ library PaymentCore{
         }
     }
 
-    function _getWitnessTypeString() private pure returns (string memory) {
-        return "PaymentIntent witness)PaymentIntent(bytes32 paymentId,uint8 payment_type,OperatorData operator_data,uint256 amount,Domain source,Domain destination,uint256 processing_date,uint256 expires_at,uint256 nonce,string payment_reference)OperatorData(bytes32 operatorId,address operator,address treasury_account,uint256 fee,string operatorURI)Domain(address account,uint256 network_id,address payment_token)TokenPermissions(address token,uint256 amount)";
-        // string memory witnessTypeString = "PaymentIntent witness)PaymentIntent(bytes32 paymentId,uint8 payment_type,OperatorData operator_data,uint256 amount,Domain source,Domain destination,uint256 processing_date,uint256 expires_at,Schedule schedule,uint256 nonce,string payment_reference,bytes metadata)TokenPermissions(address token,uint256 amount)OperatorData(bytes32 operatorId,address operator,address[] authorized_signers,address treasury_account,uint256 fee,string operatorURI)Domain(address account,uint256 network_id,address payment_token)Schedule(uint8 intervalUnit,uint256 interval_count,uint256 iterations,uint256 start_date,uint256 end_date)";
+    function _getWitnessTypeString() internal pure returns (string memory) {
+        return "PaymentIntent witness)Domain(address account,uint256 network_id,address payment_token)OperatorData(bytes32 operatorId,address operator,address treasury_account,uint256 fee)PaymentIntent(uint8 payment_type,OperatorData operator_data,uint256 amount,Domain source,Domain destination,uint256 processing_date,uint256 expires_at)TokenPermissions(address token,uint256 amount)";
     }
 
     /**
@@ -229,7 +259,15 @@ library PaymentCore{
         return executeBatchedTransfer(intent, amounts, context);
     }
 
-    function getTransferData(
+    /**
+     * @dev Gets the transfer data for a payment.
+     * @param intent The payment intent.
+     * @param amounts The transfer amounts.
+     * @param pwg The payment gateway configuration.
+     * @return recipients The recipients of the transfer.
+     * @return transferAmounts The transfer amounts.
+     */
+    function _getTransferData(
         PaymentCoreBase.PaymentIntent memory intent,
         PaymentCoreBase.TransferAmounts memory amounts,
         PaymentCoreBase.GatewayConfig memory pwg
@@ -237,7 +275,15 @@ library PaymentCore{
         recipients = new address[](3);
         transferAmounts = new uint256[](3);
 
-        recipients[0] = intent.destination.account;
+        // Recipients
+        if(intent.source.network_id != intent.destination.network_id || intent.source.payment_token != intent.destination.payment_token) {
+            // for same network or cross-chain swaps, forward to gateway node relayer
+            recipients[0] = pwg.relayer_address; 
+        } else {
+            // for same network, forward funds to destination account
+            recipients[0] = intent.destination.account; 
+        }
+        // Treasury accounts
         recipients[1] = intent.operator_data.treasury_account;
         recipients[2] = pwg.treasury;
 
@@ -457,37 +503,54 @@ library PaymentCore{
         revert("Invalid interval unit");
     }
 
+    /**
+     * @dev Constructs the Grid Network witness for a payment intent.
+     * @param intent The payment intent.
+     * @return bytes32 The witness hash.
+     */
     function _constructWitness(PaymentCoreBase.PaymentIntent memory intent) 
         internal pure returns (bytes32) {
-        bytes32 PAYMENT_INTENT_TYPEHASH = keccak256("PaymentIntent(bytes32 paymentId,uint8 payment_type,OperatorData operator_data,uint256 amount,Domain source,Domain destination,uint256 processing_date,uint256 expires_at,uint256 nonce,string payment_reference)OperatorData(bytes32 operatorId,address operator,address treasury_account,uint256 fee,string operatorURI)Domain(address account,uint256 network_id,address payment_token)");
+
+        bytes32 WITNESS_PAYMENT_INTENT_TYPEHASH = keccak256(abi.encodePacked(
+            "PaymentIntent(uint8 payment_type,OperatorData operator_data,uint256 amount,Domain source,Domain destination,uint256 processing_date,uint256 expires_at)",
+            "Domain(address account,uint256 network_id,address payment_token)",
+            "OperatorData(bytes32 operatorId,address operator,address treasury_account,uint256 fee)"
+        ));
         
+        bytes32 WITNESS_OPERATOR_DATA_TYPEHASH = keccak256(
+            "OperatorData(bytes32 operatorId,address operator,address treasury_account,uint256 fee)"
+        );
+        
+        bytes32 DOMAIN_TYPEHASH = keccak256(
+            "Domain(address account,uint256 network_id,address payment_token)"
+        );
+
         return keccak256(abi.encode(
-            PAYMENT_INTENT_TYPEHASH,
-            intent.paymentId,
+            WITNESS_PAYMENT_INTENT_TYPEHASH,
             intent.payment_type,
             keccak256(abi.encode(
+                WITNESS_OPERATOR_DATA_TYPEHASH, 
                 intent.operator_data.operatorId,
                 intent.operator_data.operator,
                 intent.operator_data.treasury_account,
-                intent.operator_data.fee,
-                keccak256(bytes(intent.operator_data.operatorURI))
+                intent.operator_data.fee
             )),
             intent.amount,
             keccak256(abi.encode(
+                DOMAIN_TYPEHASH, 
                 intent.source.account,
                 intent.source.network_id,
                 intent.source.payment_token
             )),
             keccak256(abi.encode(
+                DOMAIN_TYPEHASH, 
                 intent.destination.account,
                 intent.destination.network_id,
                 intent.destination.payment_token
             )),
             intent.processing_date,
-            intent.expires_at,
-            intent.nonce,
-            keccak256(bytes(intent.payment_reference))
-        ));
+            intent.expires_at
+            ));
     }
 
     /// @notice Updates the payment status after a successful execution
@@ -543,4 +606,5 @@ library PaymentCore{
     function version() public pure returns (string memory) {
         return LIB_VERSION;
     }
+
 }

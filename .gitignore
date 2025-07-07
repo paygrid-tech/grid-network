@@ -11,6 +11,7 @@ node_modules/
 todos.md
 deployments/*.json
 deployments/deploy_grid_clean.js
+.cursorignore
 
 # Environment files
 .env

@@ -68,6 +68,8 @@ async function main() {
         await upgrades.validateImplementation(GridPaymentGateway);
         console.log("Implementation validated successfully");
 
+        await new Promise(resolve => setTimeout(resolve, 7000)); // 7s
+
        // Get the implementation address
        const GridPaymentGatewayAddress = await upgrades.erc1967.getImplementationAddress(GridOperatorProxy);
        console.log("GridPaymentGateway deployed to address:", GridPaymentGatewayAddress);

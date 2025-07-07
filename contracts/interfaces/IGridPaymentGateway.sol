@@ -50,6 +50,7 @@ interface IGridPaymentGateway {
         address destination,
         string reason
     );
+
     event PaymentIntentValidationError(
         bytes32 indexed paymentId,
         address indexed operator,
