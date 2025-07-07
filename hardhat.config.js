@@ -15,6 +15,11 @@ require("@nomicfoundation/hardhat-ethers");
 require("@nomicfoundation/hardhat-verify");
 
 module.exports = {
+  // paths: {
+  //   sources: "./contracts",
+  //   artifacts: "./artifacts",
+  //   node_modules: "./node_modules"
+  // },
   solidity: {
     compilers: [
       {
@@ -58,10 +63,70 @@ module.exports = {
         mnemonic: "grid test test test test test test test test test test junk",
       }
     },
+    // mainnets
     // mainnet: {
     //   url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
     //   accounts: [`0x${YOUR_PRIVATE_KEY}`], // add your mainnet private key here if you want to deploy or run scripts on mainnet
     // },
+    polygon: {
+      // url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [`0x${process.env.EVM_PRIVATE_KEY}`],
+      chainId: 137,
+      gasLimit: 9000000,
+      // gas: "auto",
+      // gasPrice: "auto",
+      allowUnlimitedContractSize: true,
+      timeout: 800000, // 13 minutes
+      gasMultiplier: 1.2,
+      // maxFeePerGas: "auto",
+      // maxPriorityFeePerGas: "auto"
+    },
+    base: {
+      // url: `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      // url: `https://base-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      url: `https://mainnet.base.org`,
+      accounts: [`0x${process.env.EVM_PRIVATE_KEY}`],
+      chainId: 8453,
+      gasLimit: 15000000,
+      gas: "auto",
+      gasPrice: "auto",
+      allowUnlimitedContractSize: true,
+      timeout: 900000, //  5 minutes
+      // gasMultiplier: 4,
+      // confirmations: 2,
+      // maxFeePerGas: "auto",
+      // maxPriorityFeePerGas: "auto"
+    },
+    optimism: {
+      url: `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      // url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [`0x${process.env.EVM_PRIVATE_KEY}`],
+      chainId: 10,
+      gasLimit: 5000000,
+      gas: "auto",
+      gasPrice: "auto",
+      allowUnlimitedContractSize: true,
+      timeout: 600000, // 10 minutes
+      gasMultiplier: 1.2,
+      maxFeePerGas: "auto",
+      maxPriorityFeePerGas: "auto"
+    },
+    arbitrum: {
+      url: `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      // url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [`0x${process.env.EVM_PRIVATE_KEY}`],
+      chainId: 42161,
+      gasLimit: 5000000,
+      gas: "auto",
+      gasPrice: "auto",
+      allowUnlimitedContractSize: true,
+      timeout: 600000, // 10 minutes
+      gasMultiplier: 1.2,
+      // maxFeePerGas: "auto",
+      // maxPriorityFeePerGas: "auto"
+    },
+    // testnets
     sepolia: {
       url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
       // url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -73,9 +138,8 @@ module.exports = {
       gas: "auto",
       allowUnlimitedContractSize: true
     },
-
-    amoy: { 
-      url: `https://polygon-amoy.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    amoy: {
+      url: `https://polygon-amoy.infura.io/v3/${process.env.INFURA_API_KEY}`, 
       accounts: [`0x${process.env.EVM_PRIVATE_KEY}`],
       chainId: 80002,
       gasPrice: 40000000000,

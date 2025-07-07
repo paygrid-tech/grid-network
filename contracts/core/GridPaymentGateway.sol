@@ -20,6 +20,7 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
 
     string private constant SIGNING_DOMAIN = "GRID_PAYMENT_GATEWAY";
     string private constant SIGNATURE_VERSION = "v1.0";
+    string private constant GRID_VERSION = "v1.9";
 
     ExecutionContext private context;
     
@@ -123,16 +124,26 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
         
         PaymentExecutionStatus storage status = stored_intent.status;
 
-        // Handle missed payments
+        /*
+        @notice > Handle missed payments
+        @notice > While the next payment date is in the past and the payment period has not ended, execute the payment.
+        */
         while (status.next_payment_date < block.timestamp && !PaymentCore.isPaymentPeriodEnded(stored_intent.intent.schedule, status.executed_count)) {
             executeAndUpdatePayment(stored_intent, "REASON_MISSED_PAYMENT");
         }
-        // Handle current payment
+
+        /*
+        @notice > Handle current payment
+        @notice > If the next payment date is within the time tolerance and the payment period has not ended, execute the payment.
+        */
         if (!PaymentCore.isPaymentPeriodEnded(stored_intent.intent.schedule, status.executed_count) && 
             PaymentCore.isWithinTimeTolerance(status.next_payment_date)) {
             executeAndUpdatePayment(stored_intent, "REASON_CURRENT_SCHEDULED_PAYMENT");
         }
-        // Check if payment period has ended
+        /*
+        @notice > Handle payment period end
+        @notice > If the payment period has ended, log the payment status and update the payment status.
+        */
         if (PaymentCore.isPaymentPeriodEnded(stored_intent.intent.schedule, status.executed_count)) {
             PaymentCore.logPaymentStatus(
                 stored_intent.intent,
@@ -180,11 +191,7 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
     function cancelRecurringPayment(bytes32 payment_id, address operator) external {
         PaymentIntentRecord storage stored_intent = payment_intents[operator][payment_id];
         require(stored_intent.intent.paymentId != bytes32(0), "Payment intent not found");
-        require(
-            _msgSender() == stored_intent.intent.source.account || 
-            _msgSender() == stored_intent.intent.operator_data.operator, 
-            "Unauthorized"
-        );
+        require(_msgSender() == stored_intent.intent.source.account || _msgSender() == stored_intent.intent.operator_data.operator, "Unauthorized");
 
         stored_intent.status.code = PaymentStatus.CANCELLED;
 
@@ -194,6 +201,9 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
             spender: address(this)
         });
 
+        /*
+        @notice > Lockdown the payment token to prevent further transfers.
+        */
         try IAllowanceTransfer(context.PERMIT2).lockdown(pairs) {
             emit PAYMENT_STATUS_UPDATE(
                 stored_intent.intent.paymentId,
@@ -226,7 +236,7 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
         bytes32 digest = _hashTypedDataV4(_hashPaymentIntent(intent));
         /*
         @notice > Using ECDSA.tryRecover, which returns both the recovered address and an error code for verification. 
-        Cannot use recover() directly with try-catch because try-catch syntax is only for external function calls and contract creations, not for internal or library functions.
+        Cannot use recover() directly with try-catch, syntax reserved for external calls and deployments, not for internal or library functions.
         */
         (address signer, ECDSA.RecoverError error,) = ECDSA.tryRecover(digest, signature);
         
@@ -244,36 +254,70 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
         return isAuthorizedSigner && isAuthorizedInitiator;
     }
 
+
     /// @notice _hashPaymentIntent: A helper function that computes the hash of the payment intent.
     function _hashPaymentIntent(PaymentIntent calldata intent) private pure returns (bytes32) {
-        bytes32 typeHash = keccak256("PaymentIntent(bytes32 paymentId,uint8 payment_type,OperatorData operator_data,uint256 amount,Domain source,Domain destination,uint256 processing_date,uint256 expires_at,Schedule schedule,uint256 nonce,string payment_reference,bytes p2_sig)OperatorData(bytes32 operatorId,address operator,address[] authorized_signers,address treasury_account,uint256 fee,string operatorURI)Domain(address account,uint256 network_id,address payment_token)Schedule(uint8 intervalUnit,uint256 interval_count,uint256 iterations,uint256 start_date,uint256 end_date)");
+
+        bytes32[] memory addressHashes = new bytes32[](intent.operator_data.authorized_signers.length);
+        for (uint256 i = 0; i < intent.operator_data.authorized_signers.length; i++) {
+            addressHashes[i] = keccak256(abi.encode(intent.operator_data.authorized_signers[i]));
+        }
+        
+        bytes32 authorizedSignersHash = keccak256(abi.encodePacked(addressHashes));
+        
+        bytes32 operatorURIHash = keccak256(bytes(intent.operator_data.operatorURI));
+        bytes32 paymentReferenceHash = keccak256(bytes(intent.payment_reference));
+        bytes32 p2SigHash = keccak256(intent.p2_sig);
 
         bytes32 operatorDataHash = keccak256(abi.encode(
+            OPERATOR_DATA_TYPEHASH,
             intent.operator_data.operatorId,
             intent.operator_data.operator,
-            keccak256(abi.encodePacked(intent.operator_data.authorized_signers)),
+            authorizedSignersHash,
             intent.operator_data.treasury_account,
             intent.operator_data.fee,
-            keccak256(bytes(intent.operator_data.operatorURI))
+            operatorURIHash
+        ));
+
+        bytes32 sourceHash = keccak256(abi.encode(
+            DOMAIN_TYPEHASH,
+            intent.source.account,
+            intent.source.network_id,
+            intent.source.payment_token
+        ));
+
+        bytes32 destinationHash = keccak256(abi.encode(
+            DOMAIN_TYPEHASH,
+            intent.destination.account,
+            intent.destination.network_id,
+            intent.destination.payment_token
+        ));
+
+        bytes32 scheduleHash = keccak256(abi.encode(
+            SCHEDULE_TYPEHASH,
+            intent.schedule.intervalUnit,
+            intent.schedule.interval_count,
+            intent.schedule.iterations,
+            intent.schedule.start_date,
+            intent.schedule.end_date
         ));
 
         return keccak256(abi.encode(
-            typeHash,
+            PAYMENT_INTENT_TYPEHASH,
             intent.paymentId,
             intent.payment_type,
             operatorDataHash,
             intent.amount,
-            keccak256(abi.encode(intent.source)),
-            keccak256(abi.encode(intent.destination)),
+            sourceHash,
+            destinationHash,
             intent.processing_date,
             intent.expires_at,
-            keccak256(abi.encode(intent.schedule)),
+            scheduleHash,
             intent.nonce,
-            keccak256(bytes(intent.payment_reference)),
-            keccak256(intent.p2_sig)
+            paymentReferenceHash,
+            p2SigHash
         ));
     }
-
 
     /// @notice Validates a payment intent
     /// @param intent The payment intent to validate
@@ -384,7 +428,8 @@ contract GridPaymentGateway is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGu
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function version() external pure returns (string memory) {
-        return SIGNATURE_VERSION;
+        return GRID_VERSION;
     }
+
 
 }
