@@ -25,7 +25,7 @@
     "ethers": "^6.13.4",
     "hardhat": "^2.22.15",
     "hardhat-deploy": "^0.12.4",
-    "hardhat-gas-reporter": "^2.2.1",
+    "hardhat-gas-reporter": "^2.3.0",
     "install": "^0.13.0",
     "npm": "^10.9.0",
     "solidity-coverage": "^0.8.13"
