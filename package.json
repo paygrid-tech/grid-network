@@ -28,7 +28,7 @@
     "hardhat-gas-reporter": "^2.2.1",
     "install": "^0.13.0",
     "npm": "^10.9.0",
-    "solidity-coverage": "^0.8.13"
+    "solidity-coverage": "^0.8.16"
   },
   "dependencies": {
     "@metamask/eth-sig-util": "^8.0.0",
