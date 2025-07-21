@@ -33,7 +33,7 @@
   "dependencies": {
     "@metamask/eth-sig-util": "^8.0.0",
     "@openzeppelin/contracts": "^5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0",
     "@openzeppelin/defender-relay-client": "^1.54.6",
     "@openzeppelin/defender-sdk": "^1.15.2",
     "@openzeppelin/hardhat-upgrades": "^3.4.0",
